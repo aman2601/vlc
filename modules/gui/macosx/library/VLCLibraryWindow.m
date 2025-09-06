@@ -489,7 +489,8 @@ static void addShadow(NSImageView *__unsafe_unretained imageView)
 
 - (void)hideControlsBarImmediately
 {
-    self.controlsBarHeightConstraint.constant = 0;
+    self.controlsBar.bottomBarView.hidden = YES;
+    self.controlsBar.bottomBarView.alphaValue = 0;
 }
 
 - (void)hideControlsBar
@@ -497,21 +498,25 @@ static void addShadow(NSImageView *__unsafe_unretained imageView)
     [NSAnimationContext runAnimationGroup:^(NSAnimationContext * const context) {
         context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
         context.duration = VLCLibraryUIUnits.controlsFadeAnimationDuration;
-        self.controlsBarHeightConstraint.animator.constant = 0;
-    } completionHandler:nil];
+        self.controlsBar.bottomBarView.animator.alphaValue = 0;
+    } completionHandler:^{
+        self.controlsBar.bottomBarView.hidden = self.controlsBar.bottomBarView.alphaValue == 0;
+    }];
 }
 
 - (void)showControlsBarImmediately
 {
-    self.controlsBarHeightConstraint.constant = VLCLibraryUIUnits.libraryWindowControlsBarHeight;
+    self.controlsBar.bottomBarView.hidden = NO;
+    self.controlsBar.bottomBarView.alphaValue = 1;
 }
 
 - (void)showControlsBar
 {
+    self.controlsBar.bottomBarView.hidden = NO;
     [NSAnimationContext runAnimationGroup:^(NSAnimationContext * const context) {
         context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseIn];
         context.duration = VLCLibraryUIUnits.controlsFadeAnimationDuration;
-        self.controlsBarHeightConstraint.animator.constant = VLCLibraryUIUnits.libraryWindowControlsBarHeight;
+        self.controlsBar.bottomBarView.animator.alphaValue = 1;
     } completionHandler:nil];
 }
 
@@ -568,6 +573,17 @@ static void addShadow(NSImageView *__unsafe_unretained imageView)
         return;
     }
 
+    NSAppearance *darkAppearance = nil;
+    if (@available(macOS 10.14, *)) {
+        darkAppearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    } else {
+        darkAppearance = [NSAppearance appearanceNamed:NSAppearanceNameVibrantDark];
+    }
+
+    if (darkAppearance) {
+        self.appearance = darkAppearance;
+    }
+
     if (_acquiredVideoView) {
         [self.videoViewController returnVideoView:_acquiredVideoView];
         _acquiredVideoView = nil;
@@ -587,6 +603,8 @@ static void addShadow(NSImageView *__unsafe_unretained imageView)
 
 - (void)disableVideoPlaybackAppearance
 {
+    self.appearance = nil;
+
     [self makeFirstResponder:self.splitViewController.multifunctionSidebarViewController.view];
     [VLCMain.sharedInstance.voutProvider updateWindowLevelForHelperWindows:NSNormalWindowLevel];
 
@@ -692,15 +710,19 @@ static void addShadow(NSImageView *__unsafe_unretained imageView)
 {
     [super windowWillEnterFullScreen:notification];
 
-    if (!self.videoViewController.view.hidden) {
+    if (self.splitViewController.mainVideoModeEnabled) {
         [self hideControlsBar];
+    }
+
+    if (self.splitViewController.mainVideoModeEnabled) {
+        self.splitViewController.multifunctionSidebarItem.animator.collapsed = YES;
     }
 }
 
 - (void)windowDidEnterFullScreen:(NSNotification *)notification
 {
     [super windowDidEnterFullScreen:notification];
-    if (!self.videoViewController.view.hidden) {
+    if (!self.splitViewController.mainVideoModeEnabled) {
         [self showControlsBar];
     }
 }

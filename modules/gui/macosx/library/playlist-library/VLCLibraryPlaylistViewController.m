@@ -72,7 +72,7 @@
                                    name:VLCLibraryModelPlaylistAdded
                                  object:nil];
         [notificationCenter addObserver:self
-                               selector:@selector(libraryModelUpdated:)
+                               selector:@selector(libraryModelPlaylistDeleted:)
                                    name:VLCLibraryModelPlaylistDeleted
                                  object:nil];
 
@@ -294,9 +294,7 @@
 
 - (void)libraryModelUpdated:(NSNotification *)notification
 {
-    NSParameterAssert(notification);
-    VLCLibraryModel * const model = (VLCLibraryModel *)notification.object;
-    NSAssert(model, @"Notification object should be a VLCLibraryModel");
+    VLCLibraryModel * const model = VLCMain.sharedInstance.libraryController.libraryModel;
     const vlc_ml_playlist_type_t playlistType = self.dataSource.playlistType;
     const size_t numberOfPlaylists = [model numberOfPlaylistsOfType:playlistType];
 
@@ -305,6 +303,15 @@
          (numberOfPlaylists > 0 && ![self.libraryWindow.libraryTargetView.subviews containsObject:_collectionViewScrollView])) &&
         self.libraryWindow.videoViewController.view.hidden) {
 
+        [self updatePresentedView];
+    }
+}
+
+- (void)libraryModelPlaylistDeleted:(NSNotification *)notification
+{
+    NSParameterAssert(notification);
+    if (self.libraryWindow.librarySegmentType == VLCLibraryPlaylistsSegmentType &&
+        self.libraryWindow.videoViewController.view.hidden) {
         [self updatePresentedView];
     }
 }

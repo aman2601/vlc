@@ -1130,10 +1130,12 @@ static int Open( vlc_object_t * p_this )
     }
 
     p_mvhd = MP4_BoxGet( p_sys->p_moov, "mvhd" );
-    if( p_mvhd && BOXDATA(p_mvhd) && BOXDATA(p_mvhd)->i_timescale )
+    if( p_mvhd && BOXDATA(p_mvhd) && BOXDATA(p_mvhd)->i_timescale &&
+        BOXDATA(p_mvhd)->i_duration < INT64_MAX )
     {
         p_sys->i_timescale = BOXDATA(p_mvhd)->i_timescale;
-        p_sys->i_moov_duration = p_sys->i_duration = BOXDATA(p_mvhd)->i_duration;
+        p_sys->i_moov_duration =
+        p_sys->i_duration =
         p_sys->i_cumulated_duration = BOXDATA(p_mvhd)->i_duration;
     }
     else
@@ -1229,9 +1231,9 @@ static int Open( vlc_object_t * p_this )
     else
     {
         p_sys->i_timescale = BOXDATA(p_mvhd)->i_timescale;
-        if( p_sys->i_timescale == 0 )
+        if( p_sys->i_timescale == 0 || p_sys->i_timescale > 0x10000000 )
         {
-            msg_Err( p_this, "bad timescale" );
+            msg_Err( p_this, "bad timescale %" PRIu32, p_sys->i_timescale );
             goto error;
         }
     }
@@ -3910,9 +3912,18 @@ static void MP4_TrackSetup( demux_t *p_demux, mp4_track_t *p_track,
         unsigned int i;
 
         msg_Warn( p_demux, "elst box found" );
+        bool use_editlist = var_InheritBool( p_demux, CFG_PREFIX"editlist" );
         for( i = 0; i < elst->i_entry_count; i++ )
         {
             const MP4_Box_data_elst_entry_t *edit = &elst->entries[i];
+            if ( edit->i_segment_duration > INT64_MAX / CLOCK_FREQ ||
+                 ( edit->i_media_time >= 0 && edit->i_media_time > INT64_MAX / CLOCK_FREQ ) )
+            {
+                use_editlist = false;
+                msg_Dbg( p_demux, "   - [%d] bogus duration=%" PRId64 " media time=%" PRId64 ")",
+                         i, edit->i_segment_duration, edit->i_media_time );
+            }
+            else
             msg_Dbg( p_demux, "   - [%d] duration=%"PRId64"ms media time=%"PRId64
                      "ms) rate=%d.%d", i,
                      MP4_rescale( edit->i_segment_duration, p_sys->i_timescale, 1000 ),
@@ -3923,7 +3934,7 @@ static void MP4_TrackSetup( demux_t *p_demux, mp4_track_t *p_track,
                      edit->i_media_rate_fraction );
         }
 
-        if( var_InheritBool( p_demux, CFG_PREFIX"editlist" ) )
+        if( use_editlist )
             p_track->p_elst = p_elst;
         else
             msg_Dbg( p_demux, "ignore editlist" );

@@ -110,6 +110,8 @@ NSString *VLCWindowShouldShowController = @"VLCWindowShouldShowController";
         _videoViewController = [[VLCMainVideoViewController alloc] init];
     }
 
+    self.delegate = self;
+
     NSNotificationCenter *notificationCenter = NSNotificationCenter.defaultCenter;
     [notificationCenter addObserver:self
                            selector:@selector(mediaMetadataChanged:)
@@ -161,6 +163,10 @@ NSString *VLCWindowShouldShowController = @"VLCWindowShouldShowController";
     }
 
     self.representedURL = [NSURL URLWithString:inputItem.MRL];
+    
+    if (self.hasActiveVideo && !self.isVisible && !self.playerController.currentMediaIsAudioOnly && self.playerController.videoTracksEnabled) {
+        [self makeKeyAndOrderFront:self];
+    }
 }
 
 - (void)setTitle:(NSString *)title
@@ -653,6 +659,14 @@ NSString *VLCWindowShouldShowController = @"VLCWindowShouldShowController";
     /* Fullscreen started */
         [self hasBecomeFullscreen];
     }
+}
+
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+    if (!self.playerController.currentMediaIsAudioOnly && self.playerController.playerState == VLC_PLAYER_STATE_PLAYING) {
+        [self.playerController pause];
+    }
+    return YES;
 }
 
 @end

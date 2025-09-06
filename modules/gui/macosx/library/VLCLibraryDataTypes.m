@@ -46,9 +46,9 @@ typedef vlc_ml_album_list_t* (*library_album_list_fetch_f)(vlc_medialibrary_t*, 
 typedef vlc_ml_artist_list_t* (*library_artist_list_fetch_f)(vlc_medialibrary_t*, const vlc_ml_query_params_t*, int64_t);
 typedef int (*library_item_set_favorite_f)(vlc_medialibrary_t*, int64_t, bool);
 
-static vlc_medialibrary_t *getMediaLibrary(void)
+vlc_medialibrary_t * _Nullable getMediaLibrary(void)
 {
-    intf_thread_t *p_intf = getIntf();
+    intf_thread_t * const p_intf = getIntf();
     if (!p_intf) {
         return nil;
     }
@@ -317,6 +317,11 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
 {
     [self doesNotRecognizeSelector:_cmd];
     return nil;
+}
+
+- (BOOL)isFileBacked
+{
+    return YES;
 }
 
 - (id<VLCMediaLibraryItemProtocol>)primaryActionableDetailLibraryItem
@@ -996,13 +1001,63 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
     return self.mediaItems.firstObject;
 }
 
+- (BOOL)isFileBacked
+{
+    if (_MRL == nil || _MRL.length == 0) {
+        return NO;
+    }
+
+    NSURL * const URL = [NSURL URLWithString:_MRL];
+    if (URL == nil || !URL.isFileURL) {
+        return NO;
+    }
+
+    return [NSFileManager.defaultManager fileExistsAtPath:URL.path];
+}
+
 - (void)moveToTrash
 {
-    NSFileManager * const fileManager = NSFileManager.defaultManager;
-    NSURL * const URL = [NSURL URLWithString:_MRL];
-    [fileManager trashItemAtURL:URL
-               resultingItemURL:nil
-                          error:nil];
+    // First check if this playlist has a valid file MRL (e.g., .m3u file)
+    if (_MRL != nil && _MRL.length > 0) {
+        NSURL * const URL = [NSURL URLWithString:_MRL];
+        if (URL == nil || !URL.isFileURL) {
+            NSLog(@"Playlist %@ is not file-backed or is a dir (?)", self.displayString);
+            return;
+        }
+        NSFileManager * const fileManager = NSFileManager.defaultManager;
+        const BOOL fileExists = [fileManager fileExistsAtPath:URL.path];
+        
+        if (!fileExists) {
+            NSLog(@"Playlist file does not exist: %@", URL.path);
+            return;
+        }
+        
+        // This is a file-based playlist, move the file to trash
+        NSError *error = nil;
+        [fileManager trashItemAtURL:URL
+                    resultingItemURL:nil
+                                error:&error];
+        if (error) {
+            NSLog(@"Failed to move playlist file to trash: %@", error);
+        } else {
+            NSLog(@"Successfully moved playlist file %@ to trash", URL.lastPathComponent);
+            return;
+        }
+    }
+    
+    // If no valid file MRL or file doesn't exist, delete from media library
+    vlc_medialibrary_t * const p_ml = getMediaLibrary();
+    if (p_ml == NULL) {
+        NSLog(@"Could not get media library to delete playlist %@", self.displayString);
+        return;
+    }
+    
+    const int result = vlc_ml_playlist_delete(p_ml, self.libraryID);
+    if (result != VLC_SUCCESS) {
+        NSLog(@"Failed to delete playlist %@ with ID %lld from media library", self.displayString, self.libraryID);
+    } else {
+        NSLog(@"Successfully deleted playlist %@ with ID %lld from media library", self.displayString, self.libraryID);
+    }
 }
 
 - (void)revealInFinder
@@ -1053,6 +1108,7 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
 @synthesize primaryActionableDetailLibraryItem = _primaryActionableDetailLibraryItem;
 @synthesize secondaryActionableDetailLibraryItem = _secondaryActionableDetailLibraryItem;
 @synthesize favorited = _favorited;
+@synthesize isFileBacked = _isFileBacked;
 
 #pragma mark - initialization
 
@@ -1150,6 +1206,7 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
         _progress = p_mediaItem->f_progress;
         _favorited = p_mediaItem->b_is_favorite;
         _title = toNSStr(p_mediaItem->psz_title);
+        _isFileBacked = YES;
 
         switch (p_mediaItem->i_subtype) {
             case VLC_ML_MEDIA_SUBTYPE_MOVIE:
@@ -1671,6 +1728,19 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
 
 @synthesize episodes = _episodes;
 
++ (nullable instancetype)showWithLibraryId:(const int64_t)libraryId
+{
+    vlc_medialibrary_t * const p_mediaLibrary = getMediaLibrary();
+    if (p_mediaLibrary == NULL) {
+        return nil;
+    }
+    vlc_ml_show_t * const p_show = vlc_ml_get_show(p_mediaLibrary, libraryId);
+    if (p_show == NULL) {
+        return nil;
+    }
+    return [[VLCMediaLibraryShow alloc] initWithShow:p_show];
+}
+
 - (instancetype)initWithShow:(struct vlc_ml_show_t *)p_show
 {
     self = [super init];
@@ -1788,6 +1858,7 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
 @synthesize secondaryActionableDetailLibraryItem = _secondaryActionableDetailLibraryItem;
 @synthesize labels = _labels;
 @synthesize favorited = _favorited;
+@synthesize isFileBacked = _isFileBacked;
 
 - (instancetype)initWithDisplayString:(NSString *)displayString
               withPrimaryDetailString:(nullable NSString *)primaryDetailString
@@ -1802,6 +1873,7 @@ static NSString *genreArrayDisplayString(NSArray<VLCMediaLibraryGenre *> * const
         _libraryId = -1;
         _smallArtworkGenerated = NO;
         _smallArtworkMRL = @"";
+        _isFileBacked = NO;
         _primaryActionableDetail = NO;
         _primaryActionableDetailLibraryItem = nil;
         _secondaryActionableDetail = NO;

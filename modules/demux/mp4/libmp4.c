@@ -37,6 +37,7 @@
 #include <math.h>
 #include <assert.h>
 #include <limits.h>
+#include <stdckdint.h>
 
 /* Some assumptions:
  * The input method HAS to be seekable
@@ -53,14 +54,17 @@ static double conv_fx( int32_t fx ) {
 #ifdef MP4_VERBOSE
 static char * MP4_Time2Str( stime_t i_duration, uint32_t i_scale )
 {
-    uint64_t i_time = (i_scale > 0) ? i_duration / i_scale : 0;
+    uint64_t i_time = (i_scale) ? i_duration / i_scale : 0;
     unsigned h = ( i_time /( 60*60 ) ) % 60;
     unsigned m = ( i_time / 60 ) % 60;
     unsigned s = i_time % 60;
-    unsigned ms = (i_scale) ? (1000*i_duration / i_scale) % 1000 : 0;
+    uint64_t ms;
+    if ( i_scale == 0 || ckd_mul( &ms, 1000, i_duration ) )
+        ms = 0;
+    ms = (ms / i_scale) % 1000;
 
     char *out;
-    if( asprintf( &out, "%u:%.2u:%.2u:%.3u", h, m, s, ms ) < 0 )
+    if( asprintf( &out, "%u:%.2u:%.2u:%.3" PRIu64, h, m, s, ms ) < 0 )
         return NULL;
     return out;
 }
@@ -336,7 +340,7 @@ MP4_Box_t * MP4_BoxExtract( MP4_Box_t **pp_chain, uint32_t i_type )
  *****************************************************************************/
 static int MP4_PeekBoxHeader( stream_t *p_stream, MP4_Box_t *p_box )
 {
-    int      i_read;
+    ssize_t i_read;
     const uint8_t  *p_peek;
 
     if( ( ( i_read = vlc_stream_Peek( p_stream, &p_peek, 32 ) ) < 8 ) )
@@ -4727,8 +4731,7 @@ static int MP4_ReadBox_iloc( stream_t *p_stream, MP4_Box_t *p_box )
 static int MP4_ReadBox_iinf( stream_t *p_stream, MP4_Box_t *p_box )
 {
     const uint8_t *p_versionpeek;
-    size_t i_peek = vlc_stream_Peek( p_stream, &p_versionpeek, 9 );
-    if( i_peek < 9 )
+    if( vlc_stream_Peek( p_stream, &p_versionpeek, 9 ) < 9 )
         return 0;
 
     size_t i_header = 12 + (( p_versionpeek[8] == 0 ) ? 2 : 4);

@@ -90,14 +90,42 @@ QSGTextureProvider *TextureProviderItem::textureProvider() const
                 provider->setRect(rect);
         };
 
+        const auto synchronizeState = [weakThis = QPointer(this), provider = m_textureProvider]() {
+            if (Q_UNLIKELY(!weakThis))
+                return;
+
+            provider->setFiltering(weakThis->m_filtering);
+            provider->setMipmapFiltering(weakThis->m_mipmapFiltering);
+            provider->setAnisotropyLevel(weakThis->m_anisotropyLevel);
+            provider->setHorizontalWrapMode(weakThis->m_horizontalWrapMode);
+            provider->setVerticalWrapMode(weakThis->m_verticalWrapMode);
+        };
+
+        // These are going to be queued when necessary:
         connect(this, &TextureProviderItem::sourceChanged, m_textureProvider, adjustSource);
         connect(this, &TextureProviderItem::rectChanged, m_textureProvider, adjustRect);
+
+        connect(this, &TextureProviderItem::filteringChanged, m_textureProvider, &QSGTextureViewProvider::setFiltering);
+        connect(this, &TextureProviderItem::mipmapFilteringChanged, m_textureProvider, &QSGTextureViewProvider::setMipmapFiltering);
+        connect(this, &TextureProviderItem::anisotropyLevelChanged, m_textureProvider, &QSGTextureViewProvider::setAnisotropyLevel);
+        connect(this, &TextureProviderItem::horizontalWrapModeChanged, m_textureProvider, &QSGTextureViewProvider::setHorizontalWrapMode);
+        connect(this, &TextureProviderItem::verticalWrapModeChanged, m_textureProvider, &QSGTextureViewProvider::setVerticalWrapMode);
+
+        // When the target texture changes, the texture view may reset its state, so we need to synchronize in that case:
+        connect(m_textureProvider, &QSGTextureProvider::textureChanged, m_textureProvider, synchronizeState); // Executed in texture provider's thread
 
         // Initial adjustments:
         adjustSource(m_source);
         adjustRect(m_rect);
+        synchronizeState();
     }
     return m_textureProvider;
+}
+
+void TextureProviderItem::resetTextureSubRect()
+{
+    m_rect = {};
+    emit rectChanged({});
 }
 
 void TextureProviderItem::invalidateSceneGraph()
@@ -197,6 +225,20 @@ void QSGTextureViewProvider::setMipmapFiltering(QSGTexture::Filtering filter)
 {
     if (m_textureView.mipmapFiltering() == filter)
         return;
+
+    if (filter != QSGTexture::Filtering::None)
+    {
+        const auto targetTexture = m_textureView.texture();
+        // If there is no target texture, we can accept mipmap filtering. When there becomes a target texture, `QSGTextureView` should
+        // consider this itself anyway if the new target texture has no mipmaps. Workarounds should probably not be over-conservative,
+        // we should not dismiss the case if there is no target texture now but the upcoming texture has mip maps.
+        if (targetTexture && !targetTexture->hasMipmaps())
+        {
+            // Having mip map filtering when there are no mip maps may be problematic with certain graphics backends (like OpenGL).
+            qWarning() << this << "Enabling mip map filtering is blocked if the target texture has no mip maps.";
+            return;
+        }
+    }
 
     m_textureView.setMipmapFiltering(filter);
     emit textureChanged();

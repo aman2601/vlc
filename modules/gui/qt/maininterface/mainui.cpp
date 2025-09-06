@@ -48,6 +48,7 @@
 #include "util/vlctick.hpp"
 #include "util/list_selection_model.hpp"
 #include "util/ui_notifier.hpp"
+#include "util/textureproviderobserver.hpp"
 
 #include "dialogs/help/aboutmodel.hpp"
 #include "dialogs/dialogs_provider.hpp"
@@ -363,6 +364,7 @@ void MainUI::registerQMLTypes()
         qmlRegisterType<FlickableScrollHandler>( uri, versionMajor, versionMinor, "FlickableScrollHandler" );
         qmlRegisterType<ListSelectionModel>( uri, versionMajor, versionMinor, "ListSelectionModel" );
         qmlRegisterType<DoubleClickIgnoringItem>( uri, versionMajor, versionMinor, "DoubleClickIgnoringItem" );
+        qmlRegisterType<TextureProviderObserver>( uri, versionMajor, versionMinor, "TextureProviderObserver" );
 
         qmlRegisterModule(uri, versionMajor, versionMinor);
         qmlProtectModule(uri, versionMajor);
@@ -421,14 +423,4 @@ void MainUI::registerQMLTypes()
         qmlRegisterModule(uri, versionMajor, versionMinor);
         qmlProtectModule(uri, versionMajor);
     }
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 5, 0)
-    // Dummy QtQuick.Effects module
-    qmlRegisterModule("QtQuick.Effects", 0, 0);
-    // Do not protect, types can still be registered.
-#else
-    // Dummy Qt5Compat.GraphicalEffects module
-    qmlRegisterModule("Qt5Compat.GraphicalEffects", 0, 0);
-    // Do not protect, types can still be registered.
-#endif
 }

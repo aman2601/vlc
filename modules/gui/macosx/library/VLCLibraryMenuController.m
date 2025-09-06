@@ -49,6 +49,8 @@
     NSHashTable<NSMenuItem*> *_inputItemRequiringMenuItems;
     NSHashTable<NSMenuItem*> *_localInputItemRequiringMenuItems;
     NSHashTable<NSMenuItem*> *_folderInputItemRequiringMenuItems;
+    
+    NSMenuItem *_deleteItem;
 }
 
 @property (readwrite) NSMenuItem *favoriteItem;
@@ -80,8 +82,8 @@
     NSMenuItem *revealItem = [[NSMenuItem alloc] initWithTitle:_NS("Reveal in Finder") action:@selector(revealInFinder:) keyEquivalent:@""];
     revealItem.target = self;
 
-    NSMenuItem *deleteItem = [[NSMenuItem alloc] initWithTitle:_NS("Move to Trash") action:@selector(moveToTrash:) keyEquivalent:@""];
-    deleteItem.target = self;
+    _deleteItem = [[NSMenuItem alloc] initWithTitle:_NS("Move to Trash") action:@selector(moveToTrash:) keyEquivalent:@""];
+    _deleteItem.target = self;
 
     NSMenuItem *markUnseenItem = [[NSMenuItem alloc] initWithTitle:_NS("Mark as Unseen") action:@selector(markUnseen:) keyEquivalent:@""];
     markUnseenItem.target = self;
@@ -97,14 +99,18 @@
     _favoriteItem = [[NSMenuItem alloc] initWithTitle:_NS("Toggle Favorite") action:@selector(toggleFavorite:) keyEquivalent:@""];
     self.favoriteItem.target = self;
 
+    NSMenuItem *createPlaylistItem = [[NSMenuItem alloc] initWithTitle:_NS("Create Playlist from Selection") action:@selector(createPlaylistFromSelection:) keyEquivalent:@""];
+    createPlaylistItem.target = self;
+
     _libraryMenu = [[NSMenu alloc] initWithTitle:@""];
     [_libraryMenu addMenuItemsFromArray:@[
         playItem,
         appendItem,
+        createPlaylistItem,
         self.favoriteItem,
         bookmarkItem,
         revealItem,
-        deleteItem,
+        _deleteItem,
         markUnseenItem,
         informationItem,
         [NSMenuItem separatorItem], 
@@ -114,9 +120,10 @@
     _mediaItemRequiringMenuItems = [NSHashTable weakObjectsHashTable];
     [_mediaItemRequiringMenuItems addObject:playItem];
     [_mediaItemRequiringMenuItems addObject:appendItem];
+    [_mediaItemRequiringMenuItems addObject:createPlaylistItem];
     [_mediaItemRequiringMenuItems addObject:self.favoriteItem];
     [_mediaItemRequiringMenuItems addObject:revealItem];
-    [_mediaItemRequiringMenuItems addObject:deleteItem];
+    [_mediaItemRequiringMenuItems addObject:_deleteItem];
     [_mediaItemRequiringMenuItems addObject:informationItem];
 
     _recentsMediaItemRequiringMenuItems = [NSHashTable weakObjectsHashTable];
@@ -128,7 +135,7 @@
 
     _localInputItemRequiringMenuItems = [NSHashTable weakObjectsHashTable];
     [_localInputItemRequiringMenuItems addObject:revealItem];
-    [_localInputItemRequiringMenuItems addObject:deleteItem];
+    [_localInputItemRequiringMenuItems addObject:_deleteItem];
 
     _folderInputItemRequiringMenuItems = [NSHashTable weakObjectsHashTable];
     [_folderInputItemRequiringMenuItems addObject:bookmarkItem];
@@ -173,6 +180,29 @@
         }
         self.favoriteItem.title = anyUnfavorited ? _NS("Add to Favorites") : _NS("Remove from Favorites");
         self.favoriteItem.action = anyUnfavorited ? @selector(addFavorite:) : @selector(removeFavorite:);
+        
+        // Update delete menu item title based on whether items are file-backed
+        BOOL hasFileBacked = NO;
+        BOOL hasNonFileBacked = NO;
+        
+        for (VLCLibraryRepresentedItem * const item in self.representedItems) {
+            if (item.item.isFileBacked) {
+                hasFileBacked = YES;
+            } else {
+                hasNonFileBacked = YES;
+            }
+            if (hasFileBacked && hasNonFileBacked) {
+                break;
+            }
+        }
+        
+        if (hasFileBacked && hasNonFileBacked) {
+            _deleteItem.title = _NS("Move to Trash / Delete from Library");
+        } else if (hasFileBacked) {
+            _deleteItem.title = _NS("Move to Trash");
+        } else {
+            _deleteItem.title = _NS("Delete from Library");
+        }
 
     } else if (_representedInputItems != nil && self.representedInputItems.count > 0) {
         [self menuItems:_mediaItemRequiringMenuItems setHidden:YES];
@@ -245,6 +275,22 @@
         for (VLCInputItem * const inputItem in self.representedInputItems) {
             [self addInputItemToPlayQueue:inputItem playImmediately:NO];
         }
+    }
+}
+
+- (void)createPlaylistFromSelection:(id)sender
+{
+    if (self.representedItems == nil || self.representedItems.count == 0) {
+        return;
+    }
+    
+    NSMutableArray<VLCMediaLibraryMediaItem *> * const mediaItems = [NSMutableArray arrayWithCapacity:self.representedItems.count];
+    for (VLCLibraryRepresentedItem * const representedItem in self.representedItems) {
+        [mediaItems addObjectsFromArray:representedItem.item.mediaItems];
+    }
+    
+    if (mediaItems.count > 0) {
+        [VLCMain.sharedInstance.libraryController showCreatePlaylistDialogForMediaItems:mediaItems];
     }
 }
 

@@ -343,6 +343,8 @@ libqt_plugin_la_SOURCES = \
 	util/vlcqtmessagehandler.hpp \
 	util/colorizedsvgicon.cpp \
 	util/colorizedsvgicon.hpp \
+	util/textureproviderobserver.cpp \
+	util/textureproviderobserver.hpp \
 	widgets/native/animators.cpp \
 	widgets/native/animators.hpp \
 	widgets/native/customwidgets.cpp widgets/native/customwidgets.hpp \
@@ -501,6 +503,7 @@ nodist_libqt_plugin_la_SOURCES = \
 	util/list_selection_model.moc.cpp \
 	util/vlchotkeyconverter.moc.cpp \
 	util/qsgtextureview.moc.cpp \
+	util/textureproviderobserver.moc.cpp \
 	widgets/native/animators.moc.cpp \
 	widgets/native/csdthemeimage.moc.cpp \
 	widgets/native/customwidgets.moc.cpp \
@@ -1305,14 +1308,8 @@ libqml_module_widgets_a_QML = \
 	widgets/qml/FastBlend.qml \
 	widgets/qml/RadioButtonExt.qml \
 	widgets/qml/RoundedRectangleShadow.qml \
-	widgets/qml/VoronoiSnow.qml
-if HAVE_QT65
-libqml_module_widgets_a_QML += \
-	widgets/qml/BlurEffect.qml
-else
-libqml_module_widgets_a_QML += \
-	widgets/qml/compat/BlurEffect.qml
-endif
+	widgets/qml/VoronoiSnow.qml \
+	widgets/qml/DualKawaseBlur.qml
 nodist_libqml_module_widgets_a_SOURCES = widgets_qmlassets.cpp
 $(libqml_module_widgets_a_QML:.qml=.cpp) : $(builddir)/widgets/res.qrc
 $(libqml_module_widgets_a_QML:.qml=.cpp) : QML_CACHEGEN_ARGS=--resource=$(builddir)/widgets/res.qrc
@@ -1362,7 +1359,9 @@ libqt_plugin_la_SHADER := shaders/FadingEdge.frag \
                           shaders/FastBlend_screen.frag \
                           shaders/RoundedRectangleShadow.frag \
                           shaders/RoundedRectangleShadow_hollow.frag \
-                          shaders/VoronoiSnow.frag
+                          shaders/VoronoiSnow.frag \
+                          shaders/DualKawaseBlur_upsample.frag \
+                          shaders/DualKawaseBlur_downsample.frag
 if ENABLE_QT
 
 libqt_plugin_la_LIBADD += libqml_module_dialogs.a \

@@ -24,6 +24,7 @@
 
 #import <vlc_interface.h>
 #import <vlc_player.h>
+#import <vlc_media_library.h>
 
 #import "extensions/NSString+Helpers.h"
 #import "main/VLCMain.h"

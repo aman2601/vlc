@@ -40,6 +40,8 @@ extern const CGFloat VLCMediaLibrary720pWidth;
 extern const CGFloat VLCMediaLibrary720pHeight;
 extern const long long int VLCMediaLibraryMediaItemDurationDenominator;
 
+vlc_medialibrary_t * _Nullable getMediaLibrary(void);
+
 typedef NS_ENUM(NSUInteger, VLCMediaLibraryParentGroupType) {
     VLCMediaLibraryParentGroupTypeUnknown = VLC_ML_PARENT_UNKNOWN,
     VLCMediaLibraryParentGroupTypeAlbum = VLC_ML_PARENT_ALBUM,
@@ -122,6 +124,7 @@ typedef NS_ENUM(NSUInteger, VLCMediaLibraryParentGroupType) {
 @property (readonly) BOOL smallArtworkGenerated;
 @property (readonly) NSString *smallArtworkMRL;
 @property (readonly) NSString *displayString;
+@property (readonly) BOOL isFileBacked;
 @property (readonly) NSString *primaryDetailString;
 @property (readonly) NSString *secondaryDetailString;
 @property (readonly) NSString *durationString;
@@ -214,6 +217,7 @@ typedef NS_ENUM(NSUInteger, VLCMediaLibraryParentGroupType) {
 
 @interface VLCMediaLibraryShow : VLCAbstractMediaLibraryItem<VLCMediaLibraryItemProtocol>
 
++ (nullable instancetype)showWithLibraryId:(int64_t)libraryId;
 - (instancetype)initWithShow:(struct vlc_ml_show_t *)p_show;
 
 @property (readonly) NSString *name;

@@ -146,6 +146,7 @@ moc_headers = files(
     'util/dismiss_popup_event_filter.hpp',
     'util/list_selection_model.hpp',
     'util/qsgtextureview.hpp',
+    'util/textureproviderobserver.hpp',
     'widgets/native/animators.hpp',
     'widgets/native/csdthemeimage.hpp',
     'widgets/native/customwidgets.hpp',
@@ -479,6 +480,8 @@ qt_plugin_sources = files(
     'util/qsgroundedrectangularimagenode.hpp',
     'util/qsgtextureview.cpp',
     'util/qsgtextureview.hpp',
+    'util/textureproviderobserver.cpp',
+    'util/textureproviderobserver.hpp',
     'util/dismiss_popup_event_filter.cpp',
     'util/dismiss_popup_event_filter.hpp',
     'util/list_selection_model.cpp',
@@ -805,12 +808,6 @@ qml_modules += {
     ),
 }
 
-if qt6_dep.version().version_compare('>=6.5.0')
-    qml_blureffect_file = 'widgets/qml/BlurEffect.qml'
-else
-    qml_blureffect_file = 'widgets/qml/compat/BlurEffect.qml'
-endif
-
 qml_modules += {
     'name' : 'VLC.Widgets',
     'target' : 'widgets',
@@ -896,13 +893,13 @@ qml_modules += {
         'widgets/qml/PartialEffect.qml',
         'widgets/qml/ViewHeader.qml',
         'widgets/qml/ProgressIndicator.qml',
-        qml_blureffect_file,
         'widgets/qml/ImageExt.qml',
         'widgets/qml/ScrollBarExt.qml',
         'widgets/qml/FastBlend.qml',
         'widgets/qml/RadioButtonExt.qml',
         'widgets/qml/RoundedRectangleShadow.qml',
         'widgets/qml/VoronoiSnow.qml',
+        'widgets/qml/DualKawaseBlur.qml',
     ),
 }
 
